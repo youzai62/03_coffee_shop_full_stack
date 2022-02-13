@@ -1,6 +1,8 @@
 import json
 from flask import request, _request_ctx_stack
 from functools import wraps
+
+from flask_restful import abort
 from jose import jwt
 from urllib.request import urlopen
 
@@ -72,7 +74,13 @@ def get_token_auth_header():
     return true otherwise
 '''
 def check_permissions(permission, payload):
-    raise Exception('Not Implemented')
+    if 'permissions' not in payload:
+        abort(400)
+    
+    if permission not in payload['permissions']:
+        abort(403)
+        
+    return True
 
 '''
 @TODO implement verify_decode_jwt(token) method

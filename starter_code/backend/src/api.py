@@ -1,3 +1,4 @@
+from multiprocessing import _JoinableQueueType
 import os
 from flask import Flask, request, jsonify, abort
 from sqlalchemy import exc
@@ -28,7 +29,15 @@ db_drop_and_create_all()
     returns status code 200 and json {"success": True, "drinks": drinks} where drinks is the list of drinks
         or appropriate status code indicating reason for failure
 '''
+@app.route('/drinks', methods=["GET"])
+def get_drinks(jwt):
+    drinks = Drink.query.order_by(Drink.id).all()
+    formatted_drinks = {drink.short() for drink in drinks}
 
+    return jsonify({
+        'success': True,
+        'drinks': formatted_drinks
+    })
 
 '''
 @TODO implement endpoint
@@ -38,7 +47,16 @@ db_drop_and_create_all()
     returns status code 200 and json {"success": True, "drinks": drinks} where drinks is the list of drinks
         or appropriate status code indicating reason for failure
 '''
+@app.route('/drinks-detail', methods=["GET"])
+@requires_auth('get:drink-detail')
+def get_drinks_detail(jwt):
+    drinks = Drink.query.order_by(Drink.id).all()
+    formatted_drinks = {drink.long() for drink in drinks}
 
+    return jsonify({
+        'success': True,
+        'drinks': formatted_drinks
+    })
 
 '''
 @TODO implement endpoint
@@ -49,7 +67,26 @@ db_drop_and_create_all()
     returns status code 200 and json {"success": True, "drinks": drink} where drink an array containing only the newly created drink
         or appropriate status code indicating reason for failure
 '''
-
+@app.route('/drinks', methods=["POST"])
+@requires_auth('post:drinks')
+def create_drink(jwt):
+    try:
+      body = request.get_json()
+      title = body.get('title', None)
+      recipe = body.get('recipe', None)
+      if title or recipe:
+          abort(400)
+      new_drink = Drink(title, recipe)
+      new_drink.insert()
+      drinks = Drink.query.order_by(Drink.id).all()
+      formatted_drinks = {drink.long() for drink in drinks}
+      
+      return jsonify({
+        'success': True,
+        'drinks': formatted_drinks
+      })
+    except:
+      abort(400)
 
 '''
 @TODO implement endpoint
@@ -62,6 +99,28 @@ db_drop_and_create_all()
     returns status code 200 and json {"success": True, "drinks": drink} where drink an array containing only the updated drink
         or appropriate status code indicating reason for failure
 '''
+@app.route('/drinks/<int:drink_id>', methods=["PATCH"])
+@requires_auth('patch:drinks')
+def update_specific_drink(jwt, drink_id):
+    drink = Drink.query.filter(Drink.id == drink_id).one_or_none()
+    if drink is None:
+        abort(404)
+    try:
+      body = request.get_json()
+      title = body.get('title', None)
+      recipe = body.get('recipe', None)
+      drink.title = title
+      drink.recipe = recipe
+      drink.update()
+      drinks = Drink.query.order_by(Drink.id).all()
+      formatted_drinks = {drink.long() for drink in drinks}
+      
+      return jsonify({
+        'success': True,
+        'drinks': formatted_drinks
+      })
+    except:
+      abort(400)
 
 
 '''
@@ -74,7 +133,21 @@ db_drop_and_create_all()
     returns status code 200 and json {"success": True, "delete": id} where id is the id of the deleted record
         or appropriate status code indicating reason for failure
 '''
-
+@app.route('/drinks/<int:drink_id>', methods=["DELETE"])
+@requires_auth('delete:drinks')
+def delete_specific_drink(jwt, drink_id):
+    drink = Drink.query.filter(Drink.id == drink_id).one_or_none()
+    if drink is None:
+        abort(404)
+    try:
+      drink.delete()
+      
+      return jsonify({
+        'success': True,
+        'delete': drink_id
+      })
+    except:
+      abort(400)
 
 # Error Handling
 '''
